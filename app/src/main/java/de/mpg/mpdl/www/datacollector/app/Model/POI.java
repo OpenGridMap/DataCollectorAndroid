@@ -1,65 +1,70 @@
 package de.mpg.mpdl.www.datacollector.app.Model;
 
-import com.activeandroid.Model;
-import com.activeandroid.annotation.Column;
-import com.activeandroid.annotation.Table;
+import com.google.gson.annotations.Expose;
 
-import java.util.Date;
 import java.util.List;
 
 /**
  * Created by allen on 01/04/15.
  */
 
-@Table(name = "POI")
-public class POI extends Model{
+//@Table(name = "POI")
+public class POI {
 
-    @Column(name = "date")
-    private Date date;
+    @Expose
+    private String id;
 
-    @Column(name = "title")
+    @Expose
+    //@Column(name = "title")
     private String title;
 
-    @Column(name = "createdBy")
-    private User createdBy;
+    @Expose
+    //@Column(name = "description")
+    private String description;
 
-    public List<DataItem> items() {
-        return getMany(DataItem.class, "DataItem");
-    }
-    //private ArrayList<DataItem>items;
-
-
-    public Date getDate() {
-        return date;
-    }
-
-    public void setDate(Date date) {
-        this.date = date;
-    }
-
+    @Expose
+    //@Column(name = "contributors")
+    private List<User> contributors;
 
     public String getTitle() {
         return title;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public void setTitle(String title) {
         this.title = title;
     }
 
-    public User getCreatedBy() {
-        return createdBy;
+    public String getDescription() {
+        return description;
     }
 
-    public void setCreatedBy(User createdBy) {
-        this.createdBy = createdBy;
+    public void setDescription(String description) {
+        this.description = description;
     }
 
-//    public ArrayList<DataItem> getItems() {
-//        return items;
-//    }
-//
-//    public void setItems(ArrayList<DataItem> items) {
-//        this.items = items;
-//    }
+    public List<User> getContributors() {
+        return contributors;
+    }
 
+    public void setContributors(List<User> contributors) {
+        this.contributors = contributors;
+    }
+
+    @Override
+    public String toString() {
+        return "POI{" +
+                "id='" + id + '\'' +
+                ", title='" + title + '\'' +
+                ", description='" + description + '\'' +
+                ", contributors=" + contributors +
+                '}';
+    }
 }

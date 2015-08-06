@@ -1,0 +1,63 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:id="@+id/launchpad"
+    tools:context=".MainActivity$LaunchpadSectionFragment"
+    android:background="@color/white">
+
+    <ImageView
+        android:id="@+id/btnLocationUpdates"
+        android:layout_width="60dp"
+        android:layout_height="45dp"
+        android:layout_alignParentLeft="true"
+        android:text="@string/btn_get_location"
+        android:src="@drawable/marker_green" />
+
+    <RatingBar
+        android:id="@+id/ratingBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_toRightOf="@+id/btnLocationUpdates"
+        android:layout_above="@+id/frameLayout"
+        android:layout_toLeftOf="@+id/accuracy"
+        android:numStars="5"
+        android:minHeight="45dp"
+        android:maxHeight="45dp"
+        android:isIndicator="true"/>
+
+    <TextView
+        android:id="@+id/accuracy"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/black"
+        android:text="@string/accuracy"
+        android:layout_marginLeft="5dp"
+        android:maxLines="3"
+        android:singleLine="false"
+        android:layout_alignParentRight="true"/>
+
+    <FrameLayout
+        android:background="#8cf7f3ff"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/btnLocationUpdates"
+        android:id="@+id/frameLayout">
+
+        <com.skd.androidrecording.visualizer.VisualizerView
+            android:id="@+id/visualizerView"
+            android:layout_width="match_parent"
+            android:layout_height="250dp">
+        </com.skd.androidrecording.visualizer.VisualizerView>
+
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/imageView"
+            android:gravity="center"
+            android:layout_gravity="center" />
+
+    </FrameLayout>
+
+</RelativeLayout>

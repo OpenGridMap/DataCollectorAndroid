@@ -1,24 +1,28 @@
 package de.mpg.mpdl.www.datacollector.app;
 
-import android.app.ActionBar;
-import android.app.FragmentTransaction;
+import android.animation.ObjectAnimator;
+import android.animation.PropertyValuesHolder;
+import android.app.Dialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.design.widget.TabLayout;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v7.app.ActionBarDrawerToggle;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.RatingBar;
 import android.widget.TextView;
@@ -30,6 +34,10 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.oguzdev.circularfloatingactionmenu.library.FloatingActionButton;
+import com.oguzdev.circularfloatingactionmenu.library.FloatingActionMenu;
+import com.oguzdev.circularfloatingactionmenu.library.SubActionButton;
+import com.skd.androidrecording.audio.AudioRecordingThread;
 import com.squareup.otto.Produce;
 import com.squareup.picasso.Picasso;
 
@@ -38,25 +46,30 @@ import java.util.Locale;
 
 import de.mpg.mpdl.www.datacollector.app.Event.LocationChangedEvent;
 import de.mpg.mpdl.www.datacollector.app.Event.OttoSingleton;
-import de.mpg.mpdl.www.datacollector.app.SectionList.ListSectionFragment;
-import de.mpg.mpdl.www.datacollector.app.Workflow.LaunchpadSectionFragment;
+import de.mpg.mpdl.www.datacollector.app.ItemList.ItemListFragment;
+import de.mpg.mpdl.www.datacollector.app.POI.POIFragment;
 import de.mpg.mpdl.www.datacollector.app.Workflow.MetadataFragment;
+import de.mpg.mpdl.www.datacollector.app.Workflow.WorkflowSectionFragment;
 
 
 //public class MainActivity extends ActionBarActivity implements ActionBar.TabListener {
-public class MainActivity extends FragmentActivity implements
-        ActionBar.TabListener,
+public class MainActivity extends AppCompatActivity implements
         GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener,
         LocationListener,
-        LaunchpadSectionFragment.OnLocationUpdatedListener,
+        WorkflowSectionFragment.OnLocationUpdatedListener,
         MetadataFragment.OnFragmentInteractionListener{
 
     /**
      * The {@link ViewPager} that will host the section contents.
      */
-    public ViewPager mViewPager;
 
+    //new ui
+    DrawerLayout drawerLayout;
+    ActionBarDrawerToggle drawerToggle;
+    Toolbar toolbar;
+    TabLayout tabLayout;
+    ViewPager viewPager;
 
     /**
      * The {@link android.support.v4.view.PagerAdapter} that will provide
@@ -67,7 +80,7 @@ public class MainActivity extends FragmentActivity implements
      * {@link android.support.v4.app.FragmentStatePagerAdapter}.
      */
     SectionsPagerAdapter mSectionsPagerAdapter;
-    LaunchpadSectionFragment workflow;
+    WorkflowSectionFragment workflow;
     private final String LOG_TAG = MainActivity.class.getSimpleName();
     private final static int PLAY_SERVICES_RESOLUTION_REQUEST = 1000;
 
@@ -77,69 +90,48 @@ public class MainActivity extends FragmentActivity implements
     private LocationRequest mLocationRequest;
 
     // boolean flag to toggle periodic location updates
-    private boolean mRequestingLocationUpdates = false;
+    private boolean mRequestingLocationUpdates = true;
 
 
     // Location updates intervals in sec
     private static int UPDATE_INTERVAL = 2000; // Update location every 5 sec
     private static int FATEST_INTERVAL = 1000; // 2 sec
     private static int DISPLACEMENT = 0; // 2 meters
+    // Request code to use when launching the resolution activity
+    private static final int REQUEST_RESOLVE_ERROR = 1001;
+    // Unique tag for the error dialog fragment
+    private static final String DIALOG_ERROR = "dialog_error";
+    // Bool to track whether the app is already resolving an error
+    private boolean mResolvingError = false;
+
+    private AudioRecordingThread recordingThread;
 
     private TextView lblLocation;
     private RatingBar ratingView;
-    private ImageView btnStartLocationUpdates;
+    public FloatingActionButton bottomCenterButton;
+    public SubActionButton subActionButtonCamera;
+    public SubActionButton subActionButtonPic;
+    public SubActionButton subActionButtonAudio;
+    public SubActionButton subActionButtonVideo;
+    public SubActionButton subActionButtonText;
+    public SubActionButton subActionButtonGPS;
+    public SubActionButton subActionButtonSave;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         //ActiveAndroid.initialize(this);
 
-        setContentView(R.layout.activity_main);
 
-        // Set up the action bar.
-        final ActionBar actionBar = getActionBar();
-        //final ActionBar actionBar = getSupportActionBar();
-        assert actionBar != null;
-        actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
-
-        // Create the adapter that will return a fragment for each of the three
-        // primary sections of the activity.
-        mSectionsPagerAdapter = new SectionsPagerAdapter(getSupportFragmentManager());
-
-        // Specify that the Home/Up button should not be enabled, since there is no hierarchical
-        // parent.
-        actionBar.setHomeButtonEnabled(false);
-
-        // Set up the ViewPager with the sections adapter.
-        mViewPager = (ViewPager) findViewById(R.id.pager);
-        mViewPager.setAdapter(mSectionsPagerAdapter);
-
-        // When swiping between different sections, select the corresponding
-        // tab. We can also use ActionBar.Tab#select() to do this if we have
-        // a reference to the Tab.
-        mViewPager.setOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
-            @Override
-            public void onPageSelected(int position) {
-                actionBar.setSelectedNavigationItem(position);
-            }
-        });
-
-        // For each of the sections in the app, add a tab to the action bar.
-        for (int i = 0; i < mSectionsPagerAdapter.getCount(); i++) {
-            // Create a tab with text corresponding to the page title defined by
-            // the adapter. Also specify this Activity object, which implements
-            // the TabListener interface, as the callback (listener) for when
-            // this tab is selected.
-            actionBar.addTab(
-                    actionBar.newTab()
-                            .setText(mSectionsPagerAdapter.getPageTitle(i))
-                            .setTabListener(this));
+        int code = GooglePlayServicesUtil.isGooglePlayServicesAvailable(this);
+        if(code != ConnectionResult.SUCCESS) {
+            Dialog dialog = GooglePlayServicesUtil.getErrorDialog(code, this, 1);
+            dialog.show();
         }
 
-
-
-
+        setContentView(R.layout.activity_main);
+        initInstances();
 
         // For Location
         // First we need to check availability of play services
@@ -150,26 +142,191 @@ public class MainActivity extends FragmentActivity implements
             createLocationRequest();
         }
 
-        // Show location button click listener
-//        btnShowLocation.setOnClickListener(new View.OnClickListener() {
-//
-//            @Override
-//            public void onClick(View v) {
-//                displayLocation();
-//            }
-//        });
+        int redActionButtonSize = getResources().getDimensionPixelSize(R.dimen.red_action_button_size);
+        int redActionButtonMargin = getResources().getDimensionPixelOffset(R.dimen.action_button_margin);
+        int redActionButtonContentSize = getResources().getDimensionPixelSize(R.dimen.red_action_button_content_size);
+        int redActionButtonContentMargin = getResources().getDimensionPixelSize(R.dimen.red_action_button_content_margin);
+        int redActionMenuRadius = getResources().getDimensionPixelSize(R.dimen.red_action_menu_radius);
+        int blueSubActionButtonSize = getResources().getDimensionPixelSize(R.dimen.blue_sub_action_button_size);
+        int blueSubActionButtonContentMargin = getResources().getDimensionPixelSize(R.dimen.blue_sub_action_button_content_margin);
 
-        // Toggling the periodic location updates
-//        btnStartLocationUpdates.setOnClickListener(new View.OnClickListener() {
-//
-//            @Override
-//            public void onClick(View v) {
-//                togglePeriodicLocationUpdates();
-//            }
-//        });
-//
+        final ImageView fabIconNew = new ImageView(this);
+        fabIconNew.setImageDrawable(getResources().getDrawable(R.drawable.ic_action_new));
+
+        FloatingActionButton.LayoutParams starParams = new FloatingActionButton.
+                LayoutParams(redActionButtonSize, redActionButtonSize);
+        starParams.setMargins(redActionButtonMargin,
+                redActionButtonMargin,
+                redActionButtonMargin,
+                redActionButtonMargin);
+        fabIconNew.setLayoutParams(starParams);
+
+
+        FloatingActionButton.LayoutParams fabIconStarParams = new FloatingActionButton.
+                LayoutParams(redActionButtonContentSize, redActionButtonContentSize);
+        fabIconStarParams.setMargins(redActionButtonContentMargin,
+                redActionButtonContentMargin,
+                redActionButtonContentMargin,
+                redActionButtonContentMargin);
+
+        bottomCenterButton = new FloatingActionButton.Builder(this)
+                .setContentView(fabIconNew, fabIconStarParams)
+                .setBackgroundDrawable(R.drawable.button_action_red_selector)
+                .setPosition(FloatingActionButton.POSITION_BOTTOM_CENTER)
+                .setLayoutParams(starParams)
+                .build();
+
+        // Set up customized SubActionButtons for the right center menu
+        SubActionButton.Builder lCSubBuilder = new SubActionButton.Builder(this);
+        lCSubBuilder.setBackgroundDrawable(getResources().getDrawable(R.drawable.button_action_blue_selector));
+
+        FrameLayout.LayoutParams blueContentParams = new FrameLayout.
+                LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+        blueContentParams.setMargins(blueSubActionButtonContentMargin,
+                                    blueSubActionButtonContentMargin,
+                                    blueSubActionButtonContentMargin,
+                                    blueSubActionButtonContentMargin);
+        lCSubBuilder.setLayoutParams(blueContentParams);
+        // Set custom layout params
+        FrameLayout.LayoutParams blueParams = new FrameLayout.
+                LayoutParams(blueSubActionButtonSize, blueSubActionButtonSize);
+        lCSubBuilder.setLayoutParams(blueParams);
+
+        ImageView lcIconCamera = new ImageView(this);
+        ImageView lcIconPic = new ImageView(this);
+        ImageView lcIconVideo = new ImageView(this);
+        ImageView lcIconGPS = new ImageView(this);
+        ImageView lcIconAudio = new ImageView(this);
+        ImageView lcIconSave = new ImageView(this);
+        ImageView lcIconText = new ImageView(this);
+
+        lcIconCamera.setImageDrawable(getResources().getDrawable(R.drawable.ic_action_camera));
+        lcIconPic.setImageDrawable(getResources().getDrawable(R.drawable.ic_action_picture));
+        lcIconVideo.setImageDrawable(getResources().getDrawable(R.drawable.ic_action_video));
+        lcIconGPS.setImageDrawable(getResources().getDrawable(R.drawable.ic_action_location_found));
+        lcIconAudio.setImageDrawable(getResources().getDrawable(R.drawable.mic_white));
+        lcIconSave.setImageDrawable(getResources().getDrawable(R.drawable.save_white));
+        //lcIconText.setImageDrawable(getResources().getDrawable(R.drawable.ic_action_chat));
+
+        subActionButtonCamera = lCSubBuilder.setContentView(lcIconCamera, blueContentParams).build();
+        subActionButtonPic = lCSubBuilder.setContentView(lcIconPic, blueContentParams).build();
+        subActionButtonAudio = lCSubBuilder.setContentView(lcIconAudio, blueContentParams).build();
+        subActionButtonVideo = lCSubBuilder.setContentView(lcIconVideo, blueContentParams).build();
+        //subActionButtonText = lCSubBuilder.setContentView(lcIconText, blueContentParams).build();
+        subActionButtonGPS = lCSubBuilder.setContentView(lcIconGPS, blueContentParams).build();
+        subActionButtonSave = lCSubBuilder.setContentView(lcIconSave, blueContentParams).build();
+
+        // Build another menu with custom options
+        final FloatingActionMenu bottomCenterMenu = new FloatingActionMenu.Builder(this)
+                .addSubActionView(subActionButtonCamera)
+                .addSubActionView(subActionButtonPic)
+                .addSubActionView(subActionButtonAudio)
+                //.addSubActionView(subActionButtonGPS)
+                .addSubActionView(subActionButtonVideo)
+                //.addSubActionView(subActionButtonText)
+                .addSubActionView(subActionButtonSave)
+                .setRadius(redActionMenuRadius)
+                .setStartAngle(-180)
+                .setEndAngle(0)
+                .attachTo(bottomCenterButton)
+                .build();
+
+
+        // Listen menu open and close events to animate the button content view
+        bottomCenterMenu.setStateChangeListener(new FloatingActionMenu.MenuStateChangeListener() {
+            @Override
+            public void onMenuOpened(FloatingActionMenu menu) {
+                // Rotate the icon of rightLowerButton 45 degrees clockwise
+                fabIconNew.setRotation(0);
+                PropertyValuesHolder pvhR = PropertyValuesHolder.ofFloat(View.ROTATION, 45);
+                ObjectAnimator animation = ObjectAnimator.ofPropertyValuesHolder(fabIconNew, pvhR);
+                animation.start();
+            }
+
+            @Override
+            public void onMenuClosed(FloatingActionMenu menu) {
+                // Rotate the icon of rightLowerButton 45 degrees counter-clockwise
+                fabIconNew.setRotation(45);
+                PropertyValuesHolder pvhR = PropertyValuesHolder.ofFloat(View.ROTATION, 0);
+                ObjectAnimator animation = ObjectAnimator.ofPropertyValuesHolder(fabIconNew, pvhR);
+                animation.start();
+            }
+        });
+    }
+
+
+    private void initInstances() {
+        toolbar = (Toolbar) findViewById(R.id.toolbar);
+        if (toolbar != null) {
+            setSupportActionBar(toolbar);
+        }
+
+        tabLayout = (TabLayout) findViewById(R.id.tabLayout);
+        //tabLayout.addTab(tabLayout.newTab().setText("Tab 1"));
+        //tabLayout.addTab(tabLayout.newTab().setText("Tab 2"));
+        //tabLayout.addTab(tabLayout.newTab().setText("Tab 3"));
+
+        mSectionsPagerAdapter = new SectionsPagerAdapter(getSupportFragmentManager());
+
+
+        viewPager = (ViewPager) findViewById(R.id.viewPager);
+        viewPager.setAdapter(mSectionsPagerAdapter);
+        //viewPager.addOnPageChangeListener(new TabLayout.TabLayoutOnPageChangeListener(tabLayout));
+        tabLayout.setupWithViewPager(viewPager);
+
+
+        tabLayout.setOnTabSelectedListener(
+                new TabLayout.ViewPagerOnTabSelectedListener(viewPager) {
+                    @Override
+                    public void onTabSelected(TabLayout.Tab tab) {
+                        super.onTabSelected(tab);
+                        if(tab.getPosition()!= 0){
+                            bottomCenterButton.setVisibility(View.INVISIBLE);
+                            subActionButtonCamera.setVisibility(View.INVISIBLE);
+                            subActionButtonPic.setVisibility(View.INVISIBLE);
+                            subActionButtonAudio.setVisibility(View.INVISIBLE);
+                            subActionButtonVideo.setVisibility(View.INVISIBLE);
+                            //subActionButtonText.setVisibility(View.INVISIBLE);
+                            subActionButtonGPS.setVisibility(View.INVISIBLE);
+                            subActionButtonSave.setVisibility(View.INVISIBLE);
+                        }
+                    }
+
+                    @Override
+                    public void onTabUnselected(TabLayout.Tab tab) {
+                        super.onTabSelected(tab);
+                        if(tab.getPosition() != 0){
+                            bottomCenterButton.setVisibility(View.VISIBLE);
+                            subActionButtonCamera.setVisibility(View.VISIBLE);
+                            subActionButtonPic.setVisibility(View.VISIBLE);
+                            subActionButtonAudio.setVisibility(View.VISIBLE);
+                            subActionButtonVideo.setVisibility(View.VISIBLE);
+                            //subActionButtonText.setVisibility(View.VISIBLE);
+                            subActionButtonGPS.setVisibility(View.VISIBLE);
+                            subActionButtonSave.setVisibility(View.VISIBLE);
+
+                        }
+                    }
+
+                    @Override
+                    public void onTabReselected(TabLayout.Tab tab) {
+                        super.onTabSelected(tab);
+
+                    }
+                });
+
+        drawerLayout = (DrawerLayout) findViewById(R.id.drawerLayout);
+        drawerToggle = new ActionBarDrawerToggle(MainActivity.this, drawerLayout, R.string.hello_world, R.string.hello_world);
+        drawerLayout.setDrawerListener(drawerToggle);
+
+        //getSupportActionBar().setHomeButtonEnabled(true);
+        //getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
     }
+
+
+
+
 
     @Override
     protected void onStart() {
@@ -181,6 +338,17 @@ public class MainActivity extends FragmentActivity implements
         Log.e(LOG_TAG, "start onStart~~~");
     }
 
+//    @Override
+//    public void onRestoreInstanceState(Bundle savedInstanceState) {
+//        super.onRestoreInstanceState(savedInstanceState);
+//        // Restore UI state from the savedInstanceState.
+//        // This bundle has also been passed to onCreate.
+//        boolean myBoolean = savedInstanceState.getBoolean("MyBoolean");
+//        double myDouble = savedInstanceState.getDouble("myDouble");
+//        int myInt = savedInstanceState.getInt("MyInt");
+//        String myString = savedInstanceState.getString("MyString");
+//    }
+
     // recover the last status
     @Override
     protected void onRestart() {
@@ -191,20 +359,38 @@ public class MainActivity extends FragmentActivity implements
     @Override
     protected void onResume() {
         super.onResume();
-        checkPlayServices();
 
-        // Resuming the periodic location updates
-        if (mGoogleApiClient.isConnected() && mRequestingLocationUpdates) {
-            startLocationUpdates();
+        //checkPlayServices();
+        if (mGoogleApiClient != null) {
+            // Resuming the periodic location updates
+            if (mGoogleApiClient.isConnected() && mRequestingLocationUpdates) {
+                startLocationUpdates();
+            }
         }
         Log.e(LOG_TAG, "start onResume~~~");
     }
+
+//    @Override
+//    public void onSaveInstanceState(Bundle savedInstanceState) {
+//        super.onSaveInstanceState(savedInstanceState);
+//        // Save UI state changes to the savedInstanceState.
+//        // This bundle will be passed to onCreate if the process is
+//        // killed and restarted.
+//        savedInstanceState.putBoolean("MyBoolean", true);
+//        savedInstanceState.putDouble("myDouble", 1.9);
+//        savedInstanceState.putInt("MyInt", 1);
+//        savedInstanceState.putString("MyString", "Welcome back to Android");
+//        // etc.
+//    }
 
     // save the current status
     @Override
     protected void onPause() {
         super.onPause();
-        stopLocationUpdates();
+        //onSaveInstanceState();
+        if (mRequestingLocationUpdates && mGoogleApiClient.isConnected()) {
+            stopLocationUpdates();
+        }
         Log.e(LOG_TAG, "start onPause~~~");
     }
 
@@ -220,6 +406,11 @@ public class MainActivity extends FragmentActivity implements
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        //TODO clean the data when exit or not?
+        //new Delete().from(DataItem.class).execute(); // all records
+        //new Delete().from(MetaDataLocal.class).execute(); // all records
+
+        //new Delete().from(DataItem.class).where("isLocal = ?", 1).execute();
         Log.e(LOG_TAG, "start onDestroy~~~");
     }
 
@@ -247,26 +438,68 @@ public class MainActivity extends FragmentActivity implements
             startActivity(showSettingIntent);
 
             return true;
-        } else if (id == R.id.action_map){
-            openPreferredLocationInMap();
         }
+//          else if (id == R.id.action_map){
+//            openPreferredLocationInMap();
+//        }
         return super.onOptionsItemSelected(item);
     }
 
-    @Override
-    public void onTabSelected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
-        // When the given tab is selected, switch to the corresponding page in
-        // the ViewPager.
-        mViewPager.setCurrentItem(tab.getPosition());
-    }
 
-    @Override
-    public void onTabUnselected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
-    }
+//    //@Override
+//    public void onTabSelected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
+//        // When the given tab is selected, switch to the corresponding page in
+//        // the ViewPager.
+//        //TODO mViewPager
+//        viewPager.setCurrentItem(tab.getPosition());
+////        if(tab.getPosition()!= 0){
+////            Fragment frag = getSupportFragmentManager().findFragmentByTag("android:switcher:"
+////                    + R.id.pager + ":" + 0);
+////
+////            workflow = (WorkflowSectionFragment) frag;
+////            bottomCenterButton = workflow.getBottomCenterButton();
+////            bottomCenterButton.setVisibility(View.GONE);
+////            }
+//        if(tab.getPosition()!= 0){
+//            bottomCenterButton.setVisibility(View.INVISIBLE);
+//            subActionButtonCamera.setVisibility(View.INVISIBLE);
+//            subActionButtonPic.setVisibility(View.INVISIBLE);
+//            subActionButtonAudio.setVisibility(View.INVISIBLE);
+//            subActionButtonVideo.setVisibility(View.INVISIBLE);
+//            //subActionButtonText.setVisibility(View.INVISIBLE);
+//            subActionButtonGPS.setVisibility(View.INVISIBLE);
+//            subActionButtonSave.setVisibility(View.INVISIBLE);
+//        }
+//
+//    }
 
-    @Override
-    public void onTabReselected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
-    }
+//    @Override
+//    public void onTabUnselected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
+////        if(tab.getPosition()!= 0){
+////            Fragment frag = getSupportFragmentManager().findFragmentByTag("android:switcher:"
+////                    + R.id.pager + ":" + 0);
+////
+////            workflow = (WorkflowSectionFragment) frag;
+////            bottomCenterButton = workflow.getBottomCenterButton();
+////            bottomCenterButton.setVisibility(View.VISIBLE);
+////        }
+//        if(tab.getPosition() != 0){
+//            bottomCenterButton.setVisibility(View.VISIBLE);
+//            subActionButtonCamera.setVisibility(View.VISIBLE);
+//            subActionButtonPic.setVisibility(View.VISIBLE);
+//            subActionButtonAudio.setVisibility(View.VISIBLE);
+//            subActionButtonVideo.setVisibility(View.VISIBLE);
+//            //subActionButtonText.setVisibility(View.VISIBLE);
+//            subActionButtonGPS.setVisibility(View.VISIBLE);
+//            subActionButtonSave.setVisibility(View.VISIBLE);
+//
+//        }
+//
+//    }
+
+//    @Override
+//    public void onTabReselected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
+//    }
 
 
     private void openPreferredLocationInMap(){
@@ -317,31 +550,39 @@ public class MainActivity extends FragmentActivity implements
 
             Fragment fragment;
             Bundle args = new Bundle();
+            Log.v(LOG_TAG ,position+"");
+
             switch (position) {
                 case 0:
-                    // The first section of the app is the most interesting -- it offers
-                    // a launchpad into the other demonstrations in this example application.
-                    fragment =  new LaunchpadSectionFragment();
-                    args.putInt(LaunchpadSectionFragment.ARG_SECTION_NUMBER, position + 1);
+                    // The first section of the app
+                    fragment =  new WorkflowSectionFragment();
+                    args.putInt(WorkflowSectionFragment.ARG_SECTION_NUMBER, position );
                     fragment.setArguments(args);
                     return fragment;
 
                 case 1:
-                    fragment =  new ListSectionFragment();
-                    args.putInt(ListSectionFragment.ARG_SECTION_NUMBER, position + 1);
+                    fragment =  new ItemListFragment();
+                    args.putInt(ItemListFragment.ARG_SECTION_NUMBER, position );
                     fragment.setArguments(args);
                     return fragment;
 
                 case 2:
                     // The other sections of the app are dummy placeholders.
-                    fragment = new CollectionFragment();
-                    args.putInt(CollectionFragment.ARG_SECTION_NUMBER, position + 1);
+                    fragment = new POIFragment();
+                    args.putInt(POIFragment.ARG_SECTION_NUMBER, position );
                     fragment.setArguments(args);
                     return fragment;
+//                case 3:
+//                    // The other sections of the app are dummy placeholders.
+//                    fragment = new CollectionListFragment();
+//                    args.putInt(POIFragment.ARG_SECTION_NUMBER, position );
+//                    fragment.setArguments(args);
+//                    return fragment;
+
                 default:
                     // getItem is called to instantiate the fragment for the given page.
                     // Return a PlaceholderFragment (defined as a static inner class below).
-                    return new PlaceholderFragment();
+                    return new WorkflowSectionFragment();
              }
         }
 
@@ -357,49 +598,20 @@ public class MainActivity extends FragmentActivity implements
             Locale l = Locale.getDefault();
             switch (position) {
                 case 0:
-                    return getString(R.string.title_section1);
+                    return getString(R.string.title_section1).toUpperCase(l);
                 case 1:
-                    return getString(R.string.title_section2);
+                    return getString(R.string.title_section2).toUpperCase(l);
                 case 2:
                     return getString(R.string.title_section3).toUpperCase(l);
+//                case 3:
+//                    return "Collection";
             }
             return null;
         }
     }
 
 
-    /**
-     * A placeholder fragment containing a simple view.
-     */
-    public static class PlaceholderFragment extends Fragment {
-        /**
-         * The fragment argument representing the section number for this
-         * fragment.
-         */
-        private static final String ARG_SECTION_NUMBER = "section_number";
 
-        /**
-         * Returns a new instance of this fragment for the given section
-         * number.
-         */
-        public static PlaceholderFragment newInstance(int sectionNumber) {
-            PlaceholderFragment fragment = new PlaceholderFragment();
-            Bundle args = new Bundle();
-            args.putInt(ARG_SECTION_NUMBER, sectionNumber);
-            fragment.setArguments(args);
-            return fragment;
-        }
-
-        public PlaceholderFragment() {
-        }
-
-        @Override
-        public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                                 Bundle savedInstanceState) {
-            View rootView = inflater.inflate(R.layout.fragment_main, container, false);
-            return rootView;
-        }
-    }
 
 
 
@@ -422,7 +634,7 @@ public class MainActivity extends FragmentActivity implements
 
         mLastLocation = LocationServices.FusedLocationApi
                 .getLastLocation(mGoogleApiClient);
-        //togglePeriodicLocationUpdates();
+        //togglePeriodicLocationUpdates(btnStartLocationUpdates);
 
         if (mRequestingLocationUpdates) {
             startLocationUpdates();
@@ -442,8 +654,8 @@ public class MainActivity extends FragmentActivity implements
     public void onLocationChanged(Location location) {
         // Assign the new location
         mLastLocation = location;
-        showToast("Location data updated!");
-
+        //showToast("Location data updated!");
+        Log.i(LOG_TAG,"Location data updated!");
         // Displaying the new location on UI
         displayLocation();
         LocationChangedEvent event = new LocationChangedEvent(location);
@@ -453,7 +665,7 @@ public class MainActivity extends FragmentActivity implements
     //the method for LaunchpadSectionFragment.OnLocationUpdatedListener
     @Override
     public void onLocationViewClicked(ImageView btnStartLocationUpdates) {
-        togglePeriodicLocationUpdates(btnStartLocationUpdates );
+        togglePeriodicLocationUpdates(btnStartLocationUpdates);
     }
 
     @Override
@@ -463,7 +675,7 @@ public class MainActivity extends FragmentActivity implements
 
         // Replace whatever is in the fragment_container view with this fragment,
         // and add the transaction to the back stack so the user can navigate back
-          transaction.replace(R.id.pager, fragment);
+          transaction.replace(R.id.viewPager, fragment);
           transaction.addToBackStack(null);
           transaction.commit();
     }
@@ -482,14 +694,16 @@ public class MainActivity extends FragmentActivity implements
             Log.v(LOG_TAG, "gps accuracy: "+ accuracy);
             Log.v(LOG_TAG, "gps: "+latitude+" "+longitude+": "+ accuracy);
 
+            //TODO mViewPager
             //workflow = (LaunchpadSectionFragment) mSectionsPagerAdapter.getItem(0);
             Fragment frag = getSupportFragmentManager().findFragmentByTag("android:switcher:"
-                    + R.id.pager + ":" + mViewPager.getCurrentItem());
+                    + R.id.viewPager + ":" + viewPager.getCurrentItem());
 
+            //TODO mViewPager
             // based on the current position, cast the page to the correct fragment
-            if (mViewPager.getCurrentItem() == 0 && frag != null) {
-                workflow = (LaunchpadSectionFragment) frag;
-                        lblLocation = workflow.getLblLocation();
+            if (viewPager.getCurrentItem() == 0 && frag != null) {
+                workflow = (WorkflowSectionFragment) frag;
+                lblLocation = workflow.getLblLocation();
 
                 // Call a method in the LaunchpadSectionFragment to update its content
                 double accuracyImprecise = new BigDecimal(accuracy ).
@@ -517,7 +731,13 @@ public class MainActivity extends FragmentActivity implements
                     ratingView.setRating((float) 1);
                 }
                 Log.v(LOG_TAG,"Location view is updated");
+
             } else{
+//                workflow = (WorkflowSectionFragment) frag;
+//                VisualizerView voiceView = workflow.getVisualizerView();
+//                AudioPlaybackManager audioPlaybackManager = workflow.getPlaybackManager();
+//                voiceView.setVisibility(View.INVISIBLE);
+//                audioPlaybackManager.hideMediaController();
                 Log.v(LOG_TAG,"workflow LaunchpadSectionFragment is null");
             }
         } else {
@@ -530,34 +750,32 @@ public class MainActivity extends FragmentActivity implements
      * Method to toggle periodic location updates
      * */
     private void togglePeriodicLocationUpdates(ImageView btnStartLocationUpdates) {
-        if (!mRequestingLocationUpdates) {
-            // Changing the button text
-            //btnStartLocationUpdates
-            //        .setText(getString(R.string.btn_stop_location_updates));
+        if (mGoogleApiClient.isConnected()) {
+            if (!mRequestingLocationUpdates) {
 
-            mRequestingLocationUpdates = true;
+                mRequestingLocationUpdates = true;
 
-            // Starting the location updates
-            startLocationUpdates();
-            Picasso.with(this)
-                    .load(R.drawable.marker_green)
-                    .into(btnStartLocationUpdates);
-            Log.d(LOG_TAG, "Periodic location updates started!");
+                // Starting the location updates
+                startLocationUpdates();
+                Picasso.with(this)
+                        .load(R.drawable.marker_green)
+                        .into(btnStartLocationUpdates);
+                Log.d(LOG_TAG, "Periodic location updates started!");
 
-        } else {
-            // Changing the button text
-            //btnStartLocationUpdates
-            //        .setText(getString(R.string.btn_start_location_updates));
+            } else {
+                mRequestingLocationUpdates = false;
 
-            mRequestingLocationUpdates = false;
-
-            // Stopping the location updates
-            stopLocationUpdates();
-            //btnStartLocationUpdates.setBackgroundColor(Color.BLACK);
-            Picasso.with(this)
-                    .load(R.drawable.marker)
-                    .into(btnStartLocationUpdates);
-            Log.d(LOG_TAG, "Periodic location updates stopped!");
+                // Stopping the location updates
+                stopLocationUpdates();
+                //btnStartLocationUpdates.setBackgroundColor(Color.BLACK);
+                Picasso.with(this)
+                        .load(R.drawable.marker)
+                        .into(btnStartLocationUpdates);
+                Log.d(LOG_TAG, "Periodic location updates stopped!");
+            }
+        } else{
+            showToast("Can not connect the Google Location Service");
+            mGoogleApiClient.reconnect();
         }
     }
 
@@ -616,10 +834,8 @@ public class MainActivity extends FragmentActivity implements
      * Services
      * */
     protected void startLocationUpdates() {
-
         LocationServices.FusedLocationApi.requestLocationUpdates(
                 mGoogleApiClient, mLocationRequest, this);
-
     }
 
     /**
@@ -629,6 +845,8 @@ public class MainActivity extends FragmentActivity implements
         LocationServices.FusedLocationApi.removeLocationUpdates(
                 mGoogleApiClient, this);
     }
+
+
 
     /**
      * Shows a toast message.

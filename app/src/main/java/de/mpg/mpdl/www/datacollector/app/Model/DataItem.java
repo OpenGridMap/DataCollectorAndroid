@@ -7,14 +7,15 @@ import com.google.gson.annotations.Expose;
 
 import java.util.ArrayList;
 
+import de.mpg.mpdl.www.datacollector.app.Model.ImejiModel.MetaData;
+
 /**
  * Created by allen on 01/04/15.
  */
+
+//@Table(name = "DataItem", id = "_id")
 @Table(name = "DataItem")
 public class DataItem extends Model {
-//    @Expose
-//    @Column(name = "DataId")
-//    private String id;
 
     @Expose
     @Column(name = "filename")
@@ -43,7 +44,10 @@ public class DataItem extends Model {
     @Expose
     private ArrayList<MetaData> metadata;
 
-    @Column(name = "metaData")
+    @Expose
+    @Column(name = "metaData",
+            onUpdate = Column.ForeignKeyAction.CASCADE,
+            onDelete = Column.ForeignKeyAction.CASCADE)
     private MetaDataLocal metaDataLocal;
 
     @Expose
@@ -51,11 +55,11 @@ public class DataItem extends Model {
     private String collectionId;
 
 
-    @Column(name = "poi")
-    private POI poi;
+    //@Column(name = "poi")
+    //private POI poi;
 
     @Column(name = "isLocal")
-    private int isLocal;
+    private boolean isLocal;
 
     @Column(name = "localPath")
     private String localPath;
@@ -76,6 +80,14 @@ public class DataItem extends Model {
         this.metadata = metadata;
         this.collectionId = collectionId;
     }
+
+//    public void setId(String id) {
+//        this.id = id;
+//    }
+
+//    public String getId(){
+//        return id;
+//    }
 
     public String getFilename() {
         return filename;
@@ -157,11 +169,11 @@ public class DataItem extends Model {
         this.localPath = localPath;
     }
 
-    public int isLocal() {
+    public boolean isLocal() {
         return isLocal;
     }
 
-    public void setLocal(int isLocal) {
+    public void setLocal(boolean isLocal) {
         this.isLocal = isLocal;
     }
 
