@@ -5,6 +5,8 @@ import android.content.Context;
 import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.support.design.widget.Snackbar;
+import android.view.View;
 import android.widget.Toast;
 
 /**
@@ -48,6 +50,19 @@ public class DeviceStatus {
     public static void showToast(Activity activity, String message) {
         Toast.makeText(activity, message, Toast.LENGTH_SHORT).show();
     }
+
+    public static void showSnackbar(View rootLayout, String message) {
+        if(rootLayout != null){
+            Snackbar.make(rootLayout, message, Snackbar.LENGTH_SHORT)
+                    .setAction("Undo", new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+
+                        }
+                    }).show();
+        }
+    }
+
 
 
 }

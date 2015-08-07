@@ -37,7 +37,9 @@ import com.google.android.gms.location.LocationServices;
 import com.oguzdev.circularfloatingactionmenu.library.FloatingActionButton;
 import com.oguzdev.circularfloatingactionmenu.library.FloatingActionMenu;
 import com.oguzdev.circularfloatingactionmenu.library.SubActionButton;
+import com.skd.androidrecording.audio.AudioPlaybackManager;
 import com.skd.androidrecording.audio.AudioRecordingThread;
+import com.skd.androidrecording.video.PlaybackHandler;
 import com.squareup.otto.Produce;
 import com.squareup.picasso.Picasso;
 
@@ -50,6 +52,7 @@ import de.mpg.mpdl.www.datacollector.app.ItemList.ItemListFragment;
 import de.mpg.mpdl.www.datacollector.app.POI.POIFragment;
 import de.mpg.mpdl.www.datacollector.app.Workflow.MetadataFragment;
 import de.mpg.mpdl.www.datacollector.app.Workflow.WorkflowSectionFragment;
+import de.mpg.mpdl.www.datacollector.app.utils.DeviceStatus;
 
 
 //public class MainActivity extends ActionBarActivity implements ActionBar.TabListener {
@@ -70,6 +73,7 @@ public class MainActivity extends AppCompatActivity implements
     Toolbar toolbar;
     TabLayout tabLayout;
     ViewPager viewPager;
+    private View rootView;
 
     /**
      * The {@link android.support.v4.view.PagerAdapter} that will provide
@@ -106,8 +110,11 @@ public class MainActivity extends AppCompatActivity implements
 
     private AudioRecordingThread recordingThread;
 
+    private PlaybackHandler playbackHandler;
+    private AudioPlaybackManager playbackManager;
     private TextView lblLocation;
     private RatingBar ratingView;
+
     public FloatingActionButton bottomCenterButton;
     public SubActionButton subActionButtonCamera;
     public SubActionButton subActionButtonPic;
@@ -132,7 +139,7 @@ public class MainActivity extends AppCompatActivity implements
 
         setContentView(R.layout.activity_main);
         initInstances();
-
+        rootView = getWindow().getDecorView().findViewById(android.R.id.content);
         // For Location
         // First we need to check availability of play services
         if (checkPlayServices()) {
@@ -388,9 +395,12 @@ public class MainActivity extends AppCompatActivity implements
     protected void onPause() {
         super.onPause();
         //onSaveInstanceState();
-        if (mRequestingLocationUpdates && mGoogleApiClient.isConnected()) {
-            stopLocationUpdates();
+        if(mGoogleApiClient != null) {
+            if (mRequestingLocationUpdates && mGoogleApiClient.isConnected()) {
+                stopLocationUpdates();
+            }
         }
+
         Log.e(LOG_TAG, "start onPause~~~");
     }
 
@@ -400,13 +410,15 @@ public class MainActivity extends AppCompatActivity implements
         if (mGoogleApiClient.isConnected()) {
             mGoogleApiClient.disconnect();
         }
+
+
+
         Log.e(LOG_TAG, "start onStop~~~");
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        //TODO clean the data when exit or not?
         //new Delete().from(DataItem.class).execute(); // all records
         //new Delete().from(MetaDataLocal.class).execute(); // all records
 
@@ -444,62 +456,6 @@ public class MainActivity extends AppCompatActivity implements
 //        }
         return super.onOptionsItemSelected(item);
     }
-
-
-//    //@Override
-//    public void onTabSelected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
-//        // When the given tab is selected, switch to the corresponding page in
-//        // the ViewPager.
-//        //TODO mViewPager
-//        viewPager.setCurrentItem(tab.getPosition());
-////        if(tab.getPosition()!= 0){
-////            Fragment frag = getSupportFragmentManager().findFragmentByTag("android:switcher:"
-////                    + R.id.pager + ":" + 0);
-////
-////            workflow = (WorkflowSectionFragment) frag;
-////            bottomCenterButton = workflow.getBottomCenterButton();
-////            bottomCenterButton.setVisibility(View.GONE);
-////            }
-//        if(tab.getPosition()!= 0){
-//            bottomCenterButton.setVisibility(View.INVISIBLE);
-//            subActionButtonCamera.setVisibility(View.INVISIBLE);
-//            subActionButtonPic.setVisibility(View.INVISIBLE);
-//            subActionButtonAudio.setVisibility(View.INVISIBLE);
-//            subActionButtonVideo.setVisibility(View.INVISIBLE);
-//            //subActionButtonText.setVisibility(View.INVISIBLE);
-//            subActionButtonGPS.setVisibility(View.INVISIBLE);
-//            subActionButtonSave.setVisibility(View.INVISIBLE);
-//        }
-//
-//    }
-
-//    @Override
-//    public void onTabUnselected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
-////        if(tab.getPosition()!= 0){
-////            Fragment frag = getSupportFragmentManager().findFragmentByTag("android:switcher:"
-////                    + R.id.pager + ":" + 0);
-////
-////            workflow = (WorkflowSectionFragment) frag;
-////            bottomCenterButton = workflow.getBottomCenterButton();
-////            bottomCenterButton.setVisibility(View.VISIBLE);
-////        }
-//        if(tab.getPosition() != 0){
-//            bottomCenterButton.setVisibility(View.VISIBLE);
-//            subActionButtonCamera.setVisibility(View.VISIBLE);
-//            subActionButtonPic.setVisibility(View.VISIBLE);
-//            subActionButtonAudio.setVisibility(View.VISIBLE);
-//            subActionButtonVideo.setVisibility(View.VISIBLE);
-//            //subActionButtonText.setVisibility(View.VISIBLE);
-//            subActionButtonGPS.setVisibility(View.VISIBLE);
-//            subActionButtonSave.setVisibility(View.VISIBLE);
-//
-//        }
-//
-//    }
-
-//    @Override
-//    public void onTabReselected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
-//    }
 
 
     private void openPreferredLocationInMap(){
@@ -654,7 +610,8 @@ public class MainActivity extends AppCompatActivity implements
     public void onLocationChanged(Location location) {
         // Assign the new location
         mLastLocation = location;
-        //showToast("Location data updated!");
+        //DeviceStatus.showSnackbar(rootView, "Location data updated!");
+
         Log.i(LOG_TAG,"Location data updated!");
         // Displaying the new location on UI
         displayLocation();
@@ -694,8 +651,6 @@ public class MainActivity extends AppCompatActivity implements
             Log.v(LOG_TAG, "gps accuracy: "+ accuracy);
             Log.v(LOG_TAG, "gps: "+latitude+" "+longitude+": "+ accuracy);
 
-            //TODO mViewPager
-            //workflow = (LaunchpadSectionFragment) mSectionsPagerAdapter.getItem(0);
             Fragment frag = getSupportFragmentManager().findFragmentByTag("android:switcher:"
                     + R.id.viewPager + ":" + viewPager.getCurrentItem());
 
@@ -741,7 +696,7 @@ public class MainActivity extends AppCompatActivity implements
                 Log.v(LOG_TAG,"workflow LaunchpadSectionFragment is null");
             }
         } else {
-           showToast("Couldn't get the location, make sure GPS is enabled");
+            DeviceStatus.showSnackbar(rootView, "Couldn't get the location, make sure GPS is enabled");
         }
     }
 
@@ -774,7 +729,7 @@ public class MainActivity extends AppCompatActivity implements
                 Log.d(LOG_TAG, "Periodic location updates stopped!");
             }
         } else{
-            showToast("Can not connect the Google Location Service");
+            DeviceStatus.showSnackbar(rootView, "Can not connect the Google Location Service");
             mGoogleApiClient.reconnect();
         }
     }
@@ -845,15 +800,4 @@ public class MainActivity extends AppCompatActivity implements
         LocationServices.FusedLocationApi.removeLocationUpdates(
                 mGoogleApiClient, this);
     }
-
-
-
-    /**
-     * Shows a toast message.
-     */
-    public void showToast(String message) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-    }
-
-
 }
