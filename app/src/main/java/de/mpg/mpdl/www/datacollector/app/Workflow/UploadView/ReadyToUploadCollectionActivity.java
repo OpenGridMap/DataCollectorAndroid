@@ -1,5 +1,7 @@
 package de.mpg.mpdl.www.datacollector.app.Workflow.UploadView;
 
+import android.app.Activity;
+import android.content.SharedPreferences;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
@@ -57,8 +59,10 @@ public class ReadyToUploadCollectionActivity extends FragmentActivity {
     private View rootView;
     private MenuItem upload;
     private String collectionID = DeviceStatus.collectionID;
-    private String username = DeviceStatus.username;
-    private String password = DeviceStatus.password;
+    private String username;
+    private String password;
+    private SharedPreferences mPrefs;
+    private Activity activity = this;
 
     private CircularProgressButton processButton;
     private static Gson gson = new GsonBuilder()
@@ -124,7 +128,8 @@ public class ReadyToUploadCollectionActivity extends FragmentActivity {
 
         @Override
         public void failure(RetrofitError error) {
-            DeviceStatus.showSnackbar(rootView, "Upload data Failed");
+            //DeviceStatus.showSnackbar(rootView, "Upload data Failed");
+            DeviceStatus.showToast(activity,"Upload data Failed");
             if (error == null || error.getResponse() == null) {
                 OttoSingleton.getInstance().post(new UploadEvent(null));
             } else {
@@ -155,7 +160,8 @@ public class ReadyToUploadCollectionActivity extends FragmentActivity {
 
         @Override
         public void failure(RetrofitError error) {
-            DeviceStatus.showSnackbar(rootView, "Upload POI Failed");
+            //DeviceStatus.showSnackbar(rootView, "Upload POI Failed");
+            DeviceStatus.showToast(activity, "Upload POI Failed");
             Log.v(LOG_TAG, String.valueOf(error.getResponse().getStatus()));
             Log.v(LOG_TAG, String.valueOf(error));
 
@@ -194,11 +200,9 @@ public class ReadyToUploadCollectionActivity extends FragmentActivity {
         setContentView(R.layout.activity_upload_gridview);
         rootView = getWindow().getDecorView().findViewById(android.R.id.content);
 
-//        if (savedInstanceState == null) {
-//            getFragmentManager().beginTransaction()
-//                    .add(R.id.container, new ListSectionFragment())
-//                    .commit();
-//        }
+        mPrefs = this.getSharedPreferences("myPref", 0);
+        username = mPrefs.getString("username", "");
+        password = mPrefs.getString("password", "");
 
         dataList = new Select()
                 .from(DataItem.class)
